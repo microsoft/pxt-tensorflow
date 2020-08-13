@@ -1,0 +1,21 @@
+{
+    "name": "tensorflow",
+    "version": "0.0.1",
+    "description": "Run Tensorflow Lite models in MakeCode - beta",
+    "dependencies": {
+        "core": "*"
+    },
+    "files": [
+        "README.md",
+        "ns.ts"
+    ],
+    "testFiles": [
+        "test.ts"
+    ],
+    "public": true,
+    "supportedTargets": [
+        "arcade",
+        "maker"
+    ],
+    "preferredEditor": "tsprj"
+}
