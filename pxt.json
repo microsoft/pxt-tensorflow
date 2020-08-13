@@ -7,11 +7,16 @@
     },
     "files": [
         "README.md",
+        "tf.cpp",
+        "tf.ts",
+        "shims.d.ts",
         "ns.ts"
     ],
-    "testFiles": [
-        "test.ts"
-    ],
+    "codal": {
+        "libraries": [
+            "https://github.com/mmoskal/codal-tensorflow#master"
+        ]
+    },
     "public": true,
     "supportedTargets": [
         "arcade",
