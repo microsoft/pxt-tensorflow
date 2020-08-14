@@ -7,8 +7,6 @@
 #include "tensorflow/lite/schema/schema_generated.h"
 #include "tensorflow/lite/version.h"
 
-constexpr int kTensorArenaSize = 10 * 1024;
-
 class CodalErrorReporter : public tflite::ErrorReporter {
   public:
     ~CodalErrorReporter() override {}
@@ -26,7 +24,7 @@ int CodalErrorReporter::Report(const char *format, va_list args) {
 class WTensorFlow {
   public:
     CodalErrorReporter error_reporter;
-    tflite::MicroMutableOpResolver<5> op_resolver;
+    tflite::MicroMutableOpResolver<65> op_resolver;
     tflite::MicroInterpreter *interpreter;
     uint8_t *arena;
     Buffer model;
@@ -45,11 +43,58 @@ WTensorFlow::WTensorFlow() {
     hasOutput = false;
     registerGC((TValue *)&model, 1);
 
+    op_resolver.AddAbs();
+    op_resolver.AddAdd();
+    op_resolver.AddArgMax();
+    op_resolver.AddArgMin();
+    op_resolver.AddAveragePool2D();
+    op_resolver.AddCeil();
+    op_resolver.AddConcatenation();
     op_resolver.AddConv2D();
+    op_resolver.AddCos();
     op_resolver.AddDepthwiseConv2D();
+    op_resolver.AddDequantize();
+    op_resolver.AddEqual();
+    op_resolver.AddFloor();
     op_resolver.AddFullyConnected();
+    op_resolver.AddGreater();
+    op_resolver.AddGreaterEqual();
+    op_resolver.AddL2Normalization();
+    op_resolver.AddLess();
+    op_resolver.AddLessEqual();
+    op_resolver.AddLog();
+    op_resolver.AddLogicalAnd();
+    op_resolver.AddLogicalNot();
+    op_resolver.AddLogicalOr();
+    op_resolver.AddLogistic();
+    op_resolver.AddMaximum();
     op_resolver.AddMaxPool2D();
+    op_resolver.AddMean();
+    op_resolver.AddMinimum();
+    op_resolver.AddMul();
+    op_resolver.AddNeg();
+    op_resolver.AddNotEqual();
+    op_resolver.AddPack();
+    op_resolver.AddPad();
+    op_resolver.AddPadV2();
+    op_resolver.AddPrelu();
+    op_resolver.AddQuantize();
+    op_resolver.AddRelu();
+    op_resolver.AddRelu6();
+    op_resolver.AddReshape();
+    op_resolver.AddResizeNearestNeighbor();
+    op_resolver.AddRound();
+    op_resolver.AddRsqrt();
+    op_resolver.AddSin();
     op_resolver.AddSoftmax();
+    op_resolver.AddSplit();
+    op_resolver.AddSqrt();
+    op_resolver.AddSquare();
+    op_resolver.AddStridedSlice();
+    op_resolver.AddSub();
+    op_resolver.AddSvdf();
+    op_resolver.AddTanh();
+    op_resolver.AddUnpack();
 }
 
 void WTensorFlow::freeModel() {
@@ -62,17 +107,26 @@ void WTensorFlow::freeModel() {
     hasOutput = false;
 }
 
-int WTensorFlow::loadModel(Buffer model, uint32_t arena_size) {
+int WTensorFlow::loadModel(Buffer modelbuf, uint32_t arena_size) {
     freeModel();
+
+    auto model = tflite::GetModel(modelbuf->data);
+    if (model->version() != TFLITE_SCHEMA_VERSION) {
+        DMESG("Model provided is schema version %d not equal to supported version %d.",
+              model->version(), TFLITE_SCHEMA_VERSION);
+        return -1;
+    }
+
     arena = (uint8_t *)malloc(arena_size);
-    this->model = model;
-    interpreter = new tflite::MicroInterpreter(tflite::GetModel(model->data), op_resolver, arena,
-                                               arena_size, &error_reporter);
+    this->model = modelbuf;
+    interpreter =
+        new tflite::MicroInterpreter(model, op_resolver, arena, arena_size, &error_reporter);
 
     if (interpreter->AllocateTensors() != 0) {
         freeModel();
-        return -1;
+        return -2;
     }
+
     return 0;
 }
 
@@ -114,8 +168,10 @@ static int tfTypeSize(TfLiteType tp) {
 
 static int tensorElements(TfLiteTensor *tensor) {
     int tpsz = tfTypeSize(tensor->type);
+    // DMESG("te: %p %s -> %d sz=%d", tensor, TfLiteTypeGetName( tensor->type ), tpsz,
+    // tensor->bytes);
     if (tpsz < 0)
-        return -1;
+        return 0;
     return tensor->bytes / tpsz;
 }
 
@@ -133,7 +189,7 @@ static int tensorElements(TfLiteTensor *tensor) {
         for (unsigned i = 0; i < sz; ++i) {                                                        \
             expr;                                                                                  \
         }                                                                                          \
-        return sz;                                                                                 \
+        return 0;                                                                                 \
     }
 
 #define GET_TENSOR(tp, expr)                                                                       \
@@ -142,7 +198,7 @@ static int tensorElements(TfLiteTensor *tensor) {
         for (unsigned i = 0; i < sz; ++i) {                                                        \
             expr;                                                                                  \
         }                                                                                          \
-        return sz;                                                                                 \
+        return 0;                                                                                 \
     }
 
 int setTensor(TfLiteTensor *tensor, RefCollection *data) {
@@ -228,8 +284,11 @@ RefCollection *_invokeModel(RefCollection *input) {
         if (setTensor(tf->interpreter->input(i), src[i]) != 0)
             return NULL;
 
-    if (tf->invokeModel() != 0)
+    int err = tf->invokeModel();
+    if (err != 0) {
+        DMESG("model error: %d", err);
         return NULL;
+    }
 
     auto res = Array_::mk();
     registerGCObj(res);

@@ -7,6 +7,10 @@ namespace tf {
 
     export function loadModel(model: Buffer, arena_size: number) {
         const res = _loadModel(model, arena_size)
+        if (res == -1)
+            throw "Wrong model version"
+        if (res == -2)
+            throw "Can't allocate arena"
         if (res != 0)
             throw `Can't load model: ${res}`
     }
@@ -16,13 +20,14 @@ namespace tf {
         while (true) {
             const exp = inputElements(idx)
             if (!exp) {
-                if (idx + 1 != input.length)
-                    throw `Wrong number of input arrays: ${input.length} expecting: ${idx + 1}`
+                if (idx != input.length)
+                    throw `Wrong number of input arrays: ${input.length} expecting: ${idx}`
                 break
             }
             const act = input[idx].length
             if (act != exp)
                 throw `Wrong number of elements in array ${idx}: ${act} expecting: ${exp}`
+            idx++
         }
         const res = _invokeModel(input)
         if (!res)
