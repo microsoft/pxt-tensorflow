@@ -189,7 +189,7 @@ static int tensorElements(TfLiteTensor *tensor) {
         for (unsigned i = 0; i < sz; ++i) {                                                        \
             expr;                                                                                  \
         }                                                                                          \
-        return 0;                                                                                 \
+        return 0;                                                                                  \
     }
 
 #define GET_TENSOR(tp, expr)                                                                       \
@@ -198,7 +198,7 @@ static int tensorElements(TfLiteTensor *tensor) {
         for (unsigned i = 0; i < sz; ++i) {                                                        \
             expr;                                                                                  \
         }                                                                                          \
-        return 0;                                                                                 \
+        return 0;                                                                                  \
     }
 
 int setTensor(TfLiteTensor *tensor, RefCollection *data) {
