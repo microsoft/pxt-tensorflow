@@ -1,6 +1,6 @@
 namespace tf {
     //% shim=tf::_invokeModel
-    declare function _invokeModel(input: number[][]): number[][];
+    declare function _invokeModel(input: number[][], shifts: number[]): number[][];
 
     //% shim=tf::_loadModel
     declare function _loadModel(model: Buffer, arena_size: number): number;
@@ -15,7 +15,7 @@ namespace tf {
             throw `Can't load model: ${res}`
     }
 
-    export function invokeModel(input: number[][]): number[][] {
+    export function invokeModel(input: number[][], shifts: number[] = null): number[][] {
         let idx = 0
         while (true) {
             const exp = inputElements(idx)
@@ -29,7 +29,7 @@ namespace tf {
                 throw `Wrong number of elements in array ${idx}: ${act} expecting: ${exp}`
             idx++
         }
-        const res = _invokeModel(input)
+        const res = _invokeModel(input, shifts || [])
         if (!res)
             throw "Model invocation error"
         return res

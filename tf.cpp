@@ -17,7 +17,7 @@ class CodalErrorReporter : public tflite::ErrorReporter {
 };
 
 int CodalErrorReporter::Report(const char *format, va_list args) {
-    codal_vdmesg(format, false, args);
+    codal_vdmesg(format, true, args);
     return 0;
 }
 
@@ -239,6 +239,34 @@ int setTensor(TfLiteTensor *tensor, RefCollection *data) {
     }
 }
 
+int setTensorShift(TfLiteTensor *tensor, RefCollection *data, int shift) {
+    unsigned sz = tensorElements(tensor);
+
+    if (data->length() != sz)
+        return -1;
+
+    auto src = data->getData();
+
+    // this could be done with bitshift but not sure about numeric stability
+    float mul = 1.0f;
+    while (shift > 0) {
+        shift--;
+        mul /= 2.0f;
+    }
+    while (shift < 0) {
+        shift++;
+        mul *= 2.0f;
+    }
+
+    switch (tensor->type) {
+    case kTfLiteFloat32:
+        SET_TENSOR(float, dst[i] = mul * toFloat(src[i]));
+
+    default:
+        return -2;
+    }
+}
+
 int getTensor(TfLiteTensor *tensor, RefCollection *data) {
     unsigned sz = tensorElements(tensor);
     data->setLength(sz);
@@ -281,16 +309,23 @@ int inputElements(int idx) {
 }
 
 //%
-RefCollection *_invokeModel(RefCollection *input) {
+RefCollection *_invokeModel(RefCollection *input, RefCollection *shifts) {
     auto tf = getWTensorFlow();
 
     if (!tf->interpreter)
         return NULL;
 
     auto src = (RefCollection **)input->getData();
-    for (unsigned i = 0; i < tf->interpreter->inputs_size(); ++i)
-        if (setTensor(tf->interpreter->input(i), src[i]) != 0)
-            return NULL;
+    for (unsigned i = 0; i < tf->interpreter->inputs_size(); ++i) {
+        int shift = toInt(shifts->getAt(i));
+        if (shift) {
+            if (setTensorShift(tf->interpreter->input(i), src[i], shift) != 0)
+                return NULL;
+        } else {
+            if (setTensor(tf->interpreter->input(i), src[i]) != 0)
+                return NULL;
+        }
+    }
 
     int err = tf->invokeModel();
     if (err != 0) {
