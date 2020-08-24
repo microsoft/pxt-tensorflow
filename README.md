@@ -1,5 +1,10 @@
 # Tensorflow models for PXT
 
+Helpful links:
+
+* [Model Viewer](https://lutzroeder.github.io/netron/)
+
+
 ## Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a

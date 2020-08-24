@@ -24,7 +24,7 @@ int CodalErrorReporter::Report(const char *format, va_list args) {
 class WTensorFlow {
   public:
     CodalErrorReporter error_reporter;
-    tflite::MicroMutableOpResolver<65> op_resolver;
+    tflite::MicroMutableOpResolver<20> op_resolver;
     tflite::MicroInterpreter *interpreter;
     uint8_t *arena;
     Buffer model;
@@ -43,58 +43,66 @@ WTensorFlow::WTensorFlow() {
     hasOutput = false;
     registerGC((TValue *)&model, 1);
 
-    op_resolver.AddAbs();
-    op_resolver.AddAdd();
-    op_resolver.AddArgMax();
-    op_resolver.AddArgMin();
-    op_resolver.AddAveragePool2D();
-    op_resolver.AddCeil();
-    op_resolver.AddConcatenation();
     op_resolver.AddConv2D();
-    op_resolver.AddCos();
     op_resolver.AddDepthwiseConv2D();
-    op_resolver.AddDequantize();
-    op_resolver.AddEqual();
-    op_resolver.AddFloor();
-    op_resolver.AddFullyConnected();
-    op_resolver.AddGreater();
-    op_resolver.AddGreaterEqual();
-    op_resolver.AddL2Normalization();
-    op_resolver.AddLess();
-    op_resolver.AddLessEqual();
-    op_resolver.AddLog();
-    op_resolver.AddLogicalAnd();
-    op_resolver.AddLogicalNot();
-    op_resolver.AddLogicalOr();
-    op_resolver.AddLogistic();
-    op_resolver.AddMaximum();
     op_resolver.AddMaxPool2D();
-    op_resolver.AddMean();
-    op_resolver.AddMinimum();
-    op_resolver.AddMul();
-    op_resolver.AddNeg();
-    op_resolver.AddNotEqual();
-    op_resolver.AddPack();
-    op_resolver.AddPad();
-    op_resolver.AddPadV2();
-    op_resolver.AddPrelu();
-    op_resolver.AddQuantize();
-    op_resolver.AddRelu();
-    op_resolver.AddRelu6();
     op_resolver.AddReshape();
-    op_resolver.AddResizeNearestNeighbor();
-    op_resolver.AddRound();
-    op_resolver.AddRsqrt();
-    op_resolver.AddSin();
+    op_resolver.AddFullyConnected();
     op_resolver.AddSoftmax();
-    op_resolver.AddSplit();
-    op_resolver.AddSqrt();
-    op_resolver.AddSquare();
-    op_resolver.AddStridedSlice();
-    op_resolver.AddSub();
-    op_resolver.AddSvdf();
-    op_resolver.AddTanh();
-    op_resolver.AddUnpack();
+    op_resolver.AddAveragePool2D(); // 1932
+    op_resolver.AddRelu();          // seems implicit in networks
+    op_resolver.AddRelu6();         // 864
+
+    // TEST_OP
+
+#if 0
+    // START_OP
+    op_resolver.AddAbs();                   // 792
+    op_resolver.AddAdd();                   // 7808
+    op_resolver.AddArgMax();                // 2028
+    op_resolver.AddArgMin();                // 2028
+    op_resolver.AddCeil();                  // 1100
+    op_resolver.AddConcatenation();         // 4088
+    op_resolver.AddCos();                   // 792
+    op_resolver.AddDequantize();            // 1976
+    op_resolver.AddEqual();                 // 9280
+    op_resolver.AddFloor();                 // 500
+    op_resolver.AddGreater();               // 8032
+    op_resolver.AddGreaterEqual();          // 8032
+    op_resolver.AddL2Normalization();       // 3268
+    op_resolver.AddLess();                  // 8032
+    op_resolver.AddLessEqual();             // 8032
+    op_resolver.AddLog();                   // 792
+    op_resolver.AddLogicalAnd();            // 1216
+    op_resolver.AddLogicalNot();            // 792
+    op_resolver.AddLogicalOr();             // 1216
+    op_resolver.AddLogistic();              // 2080
+    op_resolver.AddMaximum();               // 6452
+    op_resolver.AddMean();                  // 2396
+    op_resolver.AddMinimum();               // 6452
+    op_resolver.AddMul();                   // 5844
+    op_resolver.AddNeg();                   // 352
+    op_resolver.AddNotEqual();              // 9248
+    op_resolver.AddPack();                  // 1380
+    op_resolver.AddPad();                   // 6604
+    op_resolver.AddPadV2();                 // 6604
+    op_resolver.AddPrelu();                 // 3896
+    op_resolver.AddQuantize();              // 2092
+    op_resolver.AddRelu6();                 // 864
+    op_resolver.AddResizeNearestNeighbor(); // 2516
+    op_resolver.AddRound();                 // 1036
+    op_resolver.AddRsqrt();                 // 824
+    op_resolver.AddSin();                   // 792
+    op_resolver.AddSplit();                 // 2280
+    op_resolver.AddSqrt();                  // 824
+    op_resolver.AddSquare();                // 792
+    op_resolver.AddStridedSlice();          // 6976
+    op_resolver.AddSub();                   // 8416
+    op_resolver.AddSvdf();                  // 5788
+    op_resolver.AddTanh();                  // 2712
+    op_resolver.AddUnpack();                // 1128
+                             // END_OP
+#endif
 }
 
 void WTensorFlow::freeModel() {
