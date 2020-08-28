@@ -5,7 +5,8 @@ namespace tf {
     //% shim=tf::_loadModel
     declare function _loadModel(model: Buffer, arena_size: number): number;
 
-    export function loadModel(model: Buffer, arena_size: number) {
+    export function loadModel(model: Buffer, arena_size?: number) {
+        if (!arena_size) arena_size = 0
         const res = _loadModel(model, arena_size)
         if (res == -1)
             throw "Wrong model version"

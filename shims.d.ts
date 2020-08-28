@@ -12,6 +12,12 @@ declare namespace tf {
      */
     //% shim=tf::freeModel
     function freeModel(): void;
+
+    /**
+     * Get size of used arena space in bytes.
+     */
+    //% shim=tf::arenaBytes
+    function arenaBytes(): uint32;
 }
 
 // Auto-generated. Do not edit. Really.

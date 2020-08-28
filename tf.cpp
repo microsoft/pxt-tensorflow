@@ -125,17 +125,31 @@ int WTensorFlow::loadModel(Buffer modelbuf, uint32_t arena_size) {
         return -1;
     }
 
-    arena = (uint8_t *)malloc(arena_size);
-    this->model = modelbuf;
-    interpreter =
-        new tflite::MicroInterpreter(model, op_resolver, arena, arena_size, &error_reporter);
+    uint32_t size = arena_size;
+    uint32_t max_size = arena_size;
 
-    if (interpreter->AllocateTensors() != 0) {
-        freeModel();
-        return -2;
+    if (arena_size == 0) {
+        size = 2048;
+        max_size = 8 * 1024 * 1024;
     }
 
-    return 0;
+    while (size <= max_size) {
+        DMESG("allocating %d bytes for arena", size);
+        arena = (uint8_t *)malloc(size);
+        this->model = modelbuf;
+        interpreter =
+            new tflite::MicroInterpreter(model, op_resolver, arena, size, &error_reporter);
+
+        if (interpreter->AllocateTensors() == 0) {
+            DMESG("allocated; %d used", interpreter->arena_used_bytes());
+            return 0;
+        }
+
+        freeModel();
+        size += size >> 2;
+    }
+
+    return -2;
 }
 
 int WTensorFlow::invokeModel() {
@@ -349,6 +363,7 @@ RefCollection *_invokeModel(RefCollection *input, RefCollection *shifts) {
 
 //%
 int _loadModel(Buffer model, uint32_t arena_size) {
+    pxt::gc(1);
     return getWTensorFlow()->loadModel(model, arena_size);
 }
 
@@ -358,6 +373,18 @@ int _loadModel(Buffer model, uint32_t arena_size) {
 //%
 void freeModel() {
     getWTensorFlow()->freeModel();
+}
+
+/**
+ * Get size of used arena space in bytes.
+ */
+//%
+uint32_t arenaBytes() {
+    auto intp = getWTensorFlow()->interpreter;
+    if (!intp)
+        return 0;
+    else
+        return intp->arena_used_bytes();
 }
 
 } // namespace tf
