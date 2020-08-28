@@ -56,6 +56,8 @@ namespace jacdac {
 
         /** Read-only bytes uint32_t. Number of RAM bytes allocated for model execution. */
         AllocatedArenaSize = 0x183,
+
+        ModelSize = 0x184,
     }
 
     function packArray(arr: number[], fmt: NumberFormat) {
@@ -67,18 +69,99 @@ namespace jacdac {
     }
 
 
+    const arenaSizeSettingsKey = "#jd-tflite-arenaSize"
+
+
     export class TFLiteHost extends Host {
         autoInvokeSamples = 0
         execTime = 0
         outputs = Buffer.create(0)
+        lastError: string
 
         constructor() {
             super("tflite", jd_class.TFLITE);
         }
 
+        get modelBuffer() {
+            const bufs = binstore.buffers()
+            if (!bufs || !bufs[0]) return null
+            if (bufs[0].getNumber(NumberFormat.Int32LE, 0) == -1)
+                return null
+            return bufs[0]
+        }
+
+        get modelSize() {
+            const m = this.modelBuffer
+            if (m) return m.length
+            else return 0
+        }
+
+        start() {
+            super.start()
+            this.loadModel()
+        }
+
+        private eraseModel() {
+            tf.freeModel()
+            binstore.erase()
+            settings.remove(arenaSizeSettingsKey)
+        }
+
+        private loadModel() {
+            this.lastError = null
+            if (!this.modelBuffer) {
+                this.lastError = "no model"
+                return
+            }
+            try {
+                const sizeHint = settings.readNumber(arenaSizeSettingsKey)
+                tf.loadModel(this.modelBuffer, sizeHint)
+                if (sizeHint == undefined)
+                    settings.writeNumber(arenaSizeSettingsKey, tf.arenaBytes() + 32)
+            } catch (e) {
+                if (typeof e == "string")
+                    this.lastError = e
+                control.dmesgValue(e)
+            }
+        }
+
+        private readModel(packet: JDPacket) {
+            const sz = packet.intData
+            if (sz > binstore.totalSize() - 8)
+                return
+            this.eraseModel()
+            const flash = binstore.addBuffer(sz)
+            const pipe = new InPipe()
+            this.sendReport(JDPacket.packed(packet.service_command, "H", [pipe.port]))
+            let off = 0
+            const headBuffer = Buffer.create(8)
+            while (true) {
+                const buf = pipe.read()
+                if (!buf)
+                    control.reset()
+                if (off == 0) {
+                    // don't write the header before we finish
+                    headBuffer.write(0, buf)
+                    binstore.write(flash, 8, buf.slice(8))
+                } else {
+                    binstore.write(flash, off, buf)
+                }
+                off += buf.length
+                if (off >= sz) {
+                    // now that we're done, write the header
+                    binstore.write(flash, 0, headBuffer)
+                    // and reset, so we're sure the GC heap is not fragmented when we allocate new arena
+                    control.reset()
+                }
+                if (off & 7)
+                    throw "invalid model stream size"
+            }
+        }
+
         handlePacket(packet: JDPacket) {
             this.handleRegInt(packet, TFLiteReg.AllocatedArenaSize, tf.arenaBytes())
             this.handleRegInt(packet, TFLiteReg.LastRunTime, this.execTime)
+            this.handleRegInt(packet, TFLiteReg.ModelSize, this.modelSize)
             this.handleRegBuffer(packet, TFLiteReg.Outputs, this.outputs)
 
             this.autoInvokeSamples = this.handleRegInt(packet, TFLiteReg.AutoInvokeEvery, this.autoInvokeSamples)
@@ -86,6 +169,7 @@ namespace jacdac {
             let arr: number[]
             switch (packet.service_command) {
                 case TFLiteCmd.SetModel:
+                    control.runInBackground(() => this.readModel(packet))
                     break
                 case TFLiteReg.OutputShape | CMD_GET_REG:
                     arr = tf.outputShape(0)

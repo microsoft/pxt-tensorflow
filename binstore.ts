@@ -1,7 +1,7 @@
-namespace binstorage {
+namespace binstore {
     /**
      * Returns all buffers currently allocated in binstore.
      */
-    //% shim=binstorage::buffers
+    //% shim=binstore::buffers
     export declare function buffers(): Buffer[];
-} // namespace binstorage
+}

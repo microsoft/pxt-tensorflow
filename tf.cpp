@@ -395,7 +395,8 @@ int _loadModel(Buffer model, uint32_t arena_size) {
  */
 //%
 void freeModel() {
-    getWTensorFlow()->freeModel();
+    if (instWTensorFlow)
+        instWTensorFlow->freeModel();
 }
 
 /**
