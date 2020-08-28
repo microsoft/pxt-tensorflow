@@ -11,8 +11,8 @@
         "tf.ts",
         "shims.d.ts",
         "tfjacdac.ts",
-        "binstorage.cpp",
-        "binstorage.ts",
+        "binstore.cpp",
+        "binstore.ts",
         "ns.ts"
     ],
     "codal": {

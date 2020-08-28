@@ -85,6 +85,8 @@ namespace jacdac {
 
             let arr: number[]
             switch (packet.service_command) {
+                case TFLiteCmd.SetModel:
+                    break
                 case TFLiteReg.OutputShape | CMD_GET_REG:
                     arr = tf.outputShape(0)
                 case TFLiteReg.InputShape | CMD_GET_REG:

@@ -19,25 +19,31 @@ declare namespace tf {
     //% shim=tf::arenaBytes
     function arenaBytes(): uint32;
 }
-declare namespace binstorage {
+declare namespace binstore {
 
     /**
-     * Returns the maximum allowed size of binstorage buffer.
+     * Returns the maximum allowed size of binstore buffers.
      */
-    //% shim=binstorage::availableSize
-    function availableSize(): uint32;
+    //% shim=binstore::totalSize
+    function totalSize(): uint32;
 
     /**
-     * Return the current binstorage in read-only buffer format (if it was formatted as such).
+     * Clear storage.
      */
-    //% shim=binstorage::asBuffer
-    function asBuffer(): Buffer;
+    //% shim=binstore::erase
+    function erase(): int32;
 
     /**
-     * Erase storage, and set it up as buffer of given size. Returns null if not available.
+     * Add a buffer of given size to binstore.
      */
-    //% shim=binstorage::formatAsBuffer
-    function formatAsBuffer(size: uint32): Buffer;
+    //% shim=binstore::addBuffer
+    function addBuffer(size: uint32): Buffer;
+
+    /**
+     * Write bytes in a binstore buffer.
+     */
+    //% shim=binstore::write
+    function write(dst: Buffer, dstOffset: int32, src: Buffer): int32;
 }
 
 // Auto-generated. Do not edit. Really.
