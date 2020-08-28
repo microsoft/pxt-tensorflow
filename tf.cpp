@@ -315,28 +315,51 @@ int getTensor(TfLiteTensor *tensor, RefCollection *data) {
 //%
 int inputElements(int idx) {
     auto tf = getWTensorFlow();
-    if (!tf->interpreter)
+    auto intp = tf->interpreter;
+    if (!intp)
         return 0;
-    if (idx < 0 || idx >= (int)tf->interpreter->inputs_size())
+    if (idx < 0 || idx >= (int)intp->inputs_size())
         return 0;
-    return tensorElements(tf->interpreter->input(idx));
+    return tensorElements(intp->input(idx));
+}
+
+//%
+RefCollection *_shape(int kind, int idx) {
+    auto tf = getWTensorFlow();
+    auto intp = tf->interpreter;
+    if (!intp)
+        return 0;
+    if (kind != 0 && kind != 1)
+        return 0;
+    int numTensors = kind == 0 ? intp->inputs_size() : intp->outputs_size();
+    if (idx < 0 || idx >= numTensors)
+        return 0;
+    auto tensor = kind == 0 ? intp->input_tensor(idx) : intp->output_tensor(idx);
+    auto res = Array_::mk();
+    registerGCObj(res);
+    for (int i = 0; i < tensor->dims->size; ++i) {
+        res->head.push(fromInt(tensor->dims->data[i]));
+    }
+    unregisterGCObj(res);
+    return res;
 }
 
 //%
 RefCollection *_invokeModel(RefCollection *input, RefCollection *shifts) {
     auto tf = getWTensorFlow();
 
-    if (!tf->interpreter)
+    auto intp = tf->interpreter;
+    if (!intp)
         return NULL;
 
     auto src = (RefCollection **)input->getData();
-    for (unsigned i = 0; i < tf->interpreter->inputs_size(); ++i) {
+    for (unsigned i = 0; i < intp->inputs_size(); ++i) {
         int shift = toInt(shifts->getAt(i));
         if (shift) {
-            if (setTensorShift(tf->interpreter->input(i), src[i], shift) != 0)
+            if (setTensorShift(intp->input(i), src[i], shift) != 0)
                 return NULL;
         } else {
-            if (setTensor(tf->interpreter->input(i), src[i]) != 0)
+            if (setTensor(intp->input(i), src[i]) != 0)
                 return NULL;
         }
     }
@@ -349,12 +372,12 @@ RefCollection *_invokeModel(RefCollection *input, RefCollection *shifts) {
 
     auto res = Array_::mk();
     registerGCObj(res);
-    res->setLength(tf->interpreter->outputs_size());
+    res->setLength(intp->outputs_size());
     auto dst = res->getData();
     for (unsigned i = 0; i < res->length(); ++i) {
         auto tmp = Array_::mk();
         dst[i] = (TValue)tmp;
-        getTensor(tf->interpreter->output(i), tmp);
+        getTensor(intp->output(i), tmp);
     }
     unregisterGCObj(res);
 

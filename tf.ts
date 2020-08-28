@@ -5,6 +5,9 @@ namespace tf {
     //% shim=tf::_loadModel
     declare function _loadModel(model: Buffer, arena_size: number): number;
 
+    //% shim=tf::_shape
+    declare function _shape(kind: number, idx: number): number[];
+
     export function loadModel(model: Buffer, arena_size?: number) {
         if (!arena_size) arena_size = 0
         const res = _loadModel(model, arena_size)
@@ -34,5 +37,13 @@ namespace tf {
         if (!res)
             throw "Model invocation error"
         return res
+    }
+
+    export function inputShape(index: number) {
+        return _shape(0, index)
+    }
+
+    export function outputShape(index: number) {
+        return _shape(1, index)
     }
 }
