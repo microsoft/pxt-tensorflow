@@ -10,12 +10,18 @@
         "tf.cpp",
         "tf.ts",
         "shims.d.ts",
+        "tfjacdac.ts",
+        "binstorage.cpp",
+        "binstorage.ts",
         "ns.ts"
     ],
     "codal": {
         "libraries": [
             "https://github.com/mmoskal/codal-tensorflow#master"
         ]
+    },
+    "fileDependencies": {
+        "tfjacdac.ts": "jacdac-services"
     },
     "public": true,
     "supportedTargets": [
