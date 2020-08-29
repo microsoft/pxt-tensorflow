@@ -70,13 +70,83 @@ namespace jacdac {
 
 
     const arenaSizeSettingsKey = "#jd-tflite-arenaSize"
+    const inputsSettingsKey = "#jd-tflite-inputs"
+
+    function numberFmt(stype: TFLiteSampleType) {
+        switch (stype) {
+            case TFLiteSampleType.U8: return NumberFormat.UInt8LE
+            case TFLiteSampleType.I8: return NumberFormat.Int8LE
+            case TFLiteSampleType.U16: return NumberFormat.UInt16LE
+            case TFLiteSampleType.I16: return NumberFormat.Int16LE
+            case TFLiteSampleType.U32: return NumberFormat.UInt32LE
+            case TFLiteSampleType.I32: return NumberFormat.Int32LE
+        }
+    }
+
+    class Collector extends Client {
+        private requiredServiceNum: number
+        lastSample: Buffer
+        private parent: TFLiteHost
+        private numElts: number
+        private sampleType: TFLiteSampleType
+        private sampleMult: number
+
+        handlePacket(packet: JDPacket) {
+            if (packet.service_command == (CMD_GET_REG | REG_READING)) {
+                this.parent._newData(packet.timestamp, false)
+                const arr = packet.data.toArray(numberFmt(this.sampleType))
+                for (let i = 0; i < arr.length; ++i)
+                    this.lastSample.setNumber(NumberFormat.Float32LE, i << 2, arr[i] * this.sampleMult)
+                this.lastSample.write(0, packet.data)
+                this.parent._newData(packet.timestamp, true)
+            }
+        }
+
+        _attach(dev: Device, serviceNum: number) {
+            if (this.requiredServiceNum && serviceNum != this.requiredServiceNum)
+                return false
+            return super._attach(dev, serviceNum)
+        }
+
+        constructor(parent: TFLiteHost, config: Buffer) {
+            const [serviceClass, serviceNum, sampleSize, sampleType, sampleShift] = config.unpack("IBBBb", 8)
+            const devId = config.getNumber(NumberFormat.Int32LE, 0) == 0 ? null : config.slice(0, 8).toHex()
+            super("tfcoll", serviceClass, devId)
+            this.requiredServiceNum = serviceNum
+            this.sampleType = sampleType
+
+            this.sampleMult = 1
+            let sh = sampleShift
+            while (sh > 0) {
+                this.sampleMult /= 2
+                sh--
+            }
+            while (sh < 0) {
+                this.sampleMult *= 2
+                sh++
+            }
+
+            this.numElts = Math.idiv(sampleSize, Buffer.sizeOfNumberFormat(numberFmt(this.sampleType)))
+            this.lastSample = Buffer.create(this.numElts * 4)
+
+            this.parent = parent
+        }
+    }
 
 
     export class TFLiteHost extends Host {
-        autoInvokeSamples = 0
-        execTime = 0
-        outputs = Buffer.create(0)
-        lastError: string
+        private autoInvokeSamples = 0
+        private execTime = 0
+        private outputs = Buffer.create(0)
+        private lastError: string
+        private collectors: Collector[]
+        private lastSample: number
+        private samplingInterval: number
+        private samplesInWindow: number
+        private sampleSize: number
+        private samplesBuffer: Buffer
+        private numSamples: number
+        private lastRunNumSamples: number
 
         constructor() {
             super("tflite", jd_class.TFLITE);
@@ -96,9 +166,63 @@ namespace jacdac {
             else return 0
         }
 
+        get inputSettings() {
+            return settings.readBuffer(inputsSettingsKey)
+        }
+
+        private pushData() {
+            this.samplesBuffer.shift(this.sampleSize)
+            let off = this.samplesBuffer.length - this.sampleSize
+            for (const coll of this.collectors) {
+                this.samplesBuffer.write(off, coll.lastSample)
+                off += coll.lastSample.length
+            }
+            this.numSamples++
+        }
+
+        private runModel() {
+            if (this.lastError) return
+            const numSamples = this.numSamples
+            const t0 = control.micros()
+            try {
+                const res = tf.invokeModel([])//TODO
+                this.outputs = packArray(res[0], NumberFormat.Float32LE)
+            } catch (e) {
+                if (typeof e == "string")
+                    this.lastError = e
+                control.dmesgValue(e)
+            }
+            this.execTime = control.micros() - t0
+            this.lastRunNumSamples = numSamples
+        }
+
+        _newData(timestamp: number, isPost: boolean) {
+            if (!this.lastSample)
+                this.lastSample = timestamp
+            const d = timestamp - this.lastSample
+            let numSamples = Math.idiv(d + (d >> 1), this.samplingInterval)
+            if (!numSamples)
+                return
+            if (isPost) {
+                this.lastSample = timestamp
+                this.pushData()
+                if (this.autoInvokeSamples && this.lastRunNumSamples >= 0 &&
+                    this.numSamples - this.lastRunNumSamples >= this.autoInvokeSamples) {
+                    this.lastRunNumSamples = -1
+                    control.runInBackground(() => this.runModel())
+                }
+            } else {
+                numSamples--
+                if (numSamples > 5) numSamples = 5
+                while (numSamples-- > 0)
+                    this.pushData()
+            }
+        }
+
         start() {
             super.start()
             this.loadModel()
+            this.configureInputs()
         }
 
         private eraseModel() {
@@ -123,6 +247,44 @@ namespace jacdac {
                     this.lastError = e
                 control.dmesgValue(e)
             }
+        }
+
+        private configureInputs() {
+            const config = this.inputSettings
+            if (!config)
+                return
+            /*
+            rw inputs @ 0x80 {
+                sampling_interval: u16 ms
+                samples_in_window: u16
+                reserved: u32
+            repeats:
+                device_id: u64
+                service_class: u32
+                service_num: u8
+                sample_size: u8 bytes
+                sample_type: SampleType
+                sample_shift: i8
+            }
+            */
+
+            [this.samplingInterval, this.samplesInWindow] = config.unpack("HH")
+            const entrySize = 16
+            let off = 8
+            this.collectors = []
+            let frameSz = 0
+            while (off < config.length) {
+                const coll = new Collector(this, config.slice(off, entrySize))
+                coll.setRegInt(REG_STREAMING_INTERVAL, this.samplingInterval)
+                coll.setRegInt(REG_IS_STREAMING, 255)
+                this.collectors.push(coll)
+                frameSz += coll.lastSample.length
+                off += entrySize
+            }
+            this.sampleSize = frameSz
+            this.samplesBuffer = Buffer.create(this.samplesInWindow * frameSz)
+            this.numSamples = 0
+            this.lastRunNumSamples = 0
         }
 
         private readModel(packet: JDPacket) {
@@ -170,6 +332,13 @@ namespace jacdac {
             switch (packet.service_command) {
                 case TFLiteCmd.SetModel:
                     control.runInBackground(() => this.readModel(packet))
+                    break
+                case TFLiteReg.Inputs | CMD_GET_REG:
+                    this.sendReport(JDPacket.from(packet.service_command, this.inputSettings))
+                    break
+                case TFLiteReg.Inputs | CMD_SET_REG:
+                    settings.writeBuffer(inputsSettingsKey, packet.data)
+                    this.configureInputs()
                     break
                 case TFLiteReg.OutputShape | CMD_GET_REG:
                     arr = tf.outputShape(0)
