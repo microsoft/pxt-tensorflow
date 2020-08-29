@@ -205,6 +205,14 @@ static int tensorElements(TfLiteTensor *tensor) {
         v = b;                                                                                     \
     dst[i] = v
 
+#define SET_CLAMPEDF(a, b)                                                                          \
+    float v = src[i];                                                                         \
+    if (v < a)                                                                                     \
+        v = a;                                                                                     \
+    if (v > b)                                                                                     \
+        v = b;                                                                                     \
+    dst[i] = v
+
 #define SET_TENSOR(tp, expr)                                                                       \
     {                                                                                              \
         auto dst = tflite::GetTensorData<tp>(tensor);                                              \
@@ -222,6 +230,36 @@ static int tensorElements(TfLiteTensor *tensor) {
         }                                                                                          \
         return 0;                                                                                  \
     }
+
+int setTensorF(TfLiteTensor *tensor, Buffer data) {
+    unsigned sz = tensorElements(tensor);
+
+    if (data->length >> 2 != (int)sz)
+        return -1;
+
+    auto src = (float*)data->data;
+
+    switch (tensor->type) {
+    case kTfLiteFloat32:
+        SET_TENSOR(float, dst[i] = src[i]);
+
+    case kTfLiteInt32:
+        SET_TENSOR(int32_t, SET_CLAMPEDF(-0x80000000, 0x7fffffff));
+
+    case kTfLiteUInt8:
+        SET_TENSOR(uint8_t, SET_CLAMPEDF(0x00, 0xff));
+
+    case kTfLiteInt8:
+        SET_TENSOR(int8_t, SET_CLAMPEDF(-0x80, 0x7f));
+
+    case kTfLiteInt16:
+        SET_TENSOR(int16_t, SET_CLAMPEDF(-0x8000, 0x7fff));
+
+    case kTfLiteFloat16: // TODO
+    default:
+        return -2;
+    }
+}
 
 int setTensor(TfLiteTensor *tensor, RefCollection *data) {
     unsigned sz = tensorElements(tensor);
@@ -352,15 +390,23 @@ RefCollection *_invokeModel(RefCollection *input, RefCollection *shifts) {
     if (!intp)
         return NULL;
 
-    auto src = (RefCollection **)input->getData();
-    for (unsigned i = 0; i < intp->inputs_size(); ++i) {
-        int shift = toInt(shifts->getAt(i));
-        if (shift) {
-            if (setTensorShift(intp->input(i), src[i], shift) != 0)
+    if (shifts == NULL) {
+        auto src = (Buffer *)input->getData();
+        for (unsigned i = 0; i < intp->inputs_size(); ++i) {
+            if (setTensorF(intp->input(i), src[i]) != 0)
                 return NULL;
-        } else {
-            if (setTensor(intp->input(i), src[i]) != 0)
-                return NULL;
+        }
+    } else {
+        auto src = (RefCollection **)input->getData();
+        for (unsigned i = 0; i < intp->inputs_size(); ++i) {
+            int shift = toInt(shifts->getAt(i));
+            if (shift) {
+                if (setTensorShift(intp->input(i), src[i], shift) != 0)
+                    return NULL;
+            } else {
+                if (setTensor(intp->input(i), src[i]) != 0)
+                    return NULL;
+            }
         }
     }
 

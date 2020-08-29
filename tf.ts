@@ -1,6 +1,9 @@
 namespace tf {
-    //% shim=tf::_invokeModel
+    //% shim=tf::_invokeModel argsNullable
     declare function _invokeModel(input: number[][], shifts: number[]): number[][];
+
+    //% shim=tf::_invokeModel argsNullable
+    declare function _invokeModelF(input: Buffer[], shifts: null): number[][];
 
     //% shim=tf::_loadModel
     declare function _loadModel(model: Buffer, arena_size: number): number;
@@ -17,6 +20,26 @@ namespace tf {
             throw "Can't allocate arena"
         if (res != 0)
             throw `Can't load model: ${res}`
+    }
+
+    export function invokeModelF(input: Buffer[]): number[][] {
+        let idx = 0
+        while (true) {
+            const exp = inputElements(idx)
+            if (!exp) {
+                if (idx != input.length)
+                    throw `Wrong number of input arrays: ${input.length} expecting: ${idx}`
+                break
+            }
+            const act = input[idx].length >> 2
+            if (act != exp)
+                throw `Wrong number of elements in array ${idx}: ${act} expecting: ${exp}`
+            idx++
+        }
+        const res = _invokeModelF(input, null)
+        if (!res)
+            throw "Model invocation error"
+        return res
     }
 
     export function invokeModel(input: number[][], shifts: number[] = null): number[][] {
