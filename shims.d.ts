@@ -43,7 +43,7 @@ declare namespace binstore {
      * Write bytes in a binstore buffer.
      */
     //% shim=binstore::write
-    function write(dst: Buffer, dstOffset: int32, src: Buffer): int32;
+    function write(dst: Buffer, dstOffset: int32, src: Buffer): void;
 }
 
 // Auto-generated. Do not edit. Really.

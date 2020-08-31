@@ -113,7 +113,6 @@ namespace jacdac {
                 const arr = packet.data.toArray(numberFmt(this.sampleType))
                 for (let i = 0; i < arr.length; ++i)
                     this.lastSample.setNumber(NumberFormat.Float32LE, i << 2, arr[i] * this.sampleMult)
-                this.lastSample.write(0, packet.data)
                 this.parent._newData(packet.timestamp, true)
             }
         }
@@ -292,6 +291,8 @@ namespace jacdac {
             [this.samplingInterval, this.samplesInWindow] = config.unpack("HH")
             const entrySize = 16
             let off = 8
+            for (const coll of this.collectors || [])
+                coll.destroy()
             this.collectors = []
             let frameSz = 0
             while (off < config.length) {
@@ -342,8 +343,8 @@ namespace jacdac {
         }
 
         private sendLastSample() {
-            this.sendReport(JDPacket.from(TFLiteReg.CurrentSample | CMD_GET_REG, this.samplesBuffer.slice(
-                this.samplesBuffer.length - this.sampleSize, this.sampleSize)))
+            const buf = this.samplesBuffer.slice(this.samplesBuffer.length - this.sampleSize, this.sampleSize)
+            this.sendReport(JDPacket.from(TFLiteReg.CurrentSample | CMD_GET_REG, buf))
         }
 
         handlePacket(packet: JDPacket) {
