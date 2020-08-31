@@ -366,6 +366,8 @@ namespace jacdac {
                     this.sendReport(JDPacket.from(packet.service_command, this.inputSettings))
                     break
                 case TFLiteReg.Inputs | CMD_SET_REG:
+                    if (this.inputSettings && packet.data.equals(this.inputSettings))
+                        return // already done
                     settings.writeBuffer(inputsSettingsKey, packet.data)
                     this.configureInputs()
                     break
