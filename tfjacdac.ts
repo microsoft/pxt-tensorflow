@@ -57,7 +57,23 @@ namespace jacdac {
         /** Read-only bytes uint32_t. Number of RAM bytes allocated for model execution. */
         AllocatedArenaSize = 0x183,
 
+        /** Read-only bytes uint32_t. The size of `.tflite` model in bytes. */
         ModelSize = 0x184,
+
+        /** Read-only uint32_t. Number of input samples collected so far. */
+        NumSamples = 0x185,
+
+        /** Read-only bytes uint8_t. Size of a single sample. */
+        SampleSize = 0x186,
+
+        /** Read-write uint8_t. When set to `N`, will stream `N` samples as `current_sample` reading. */
+        StreamSamples = 0x82,
+
+        /** Read-only bytes. Last collected sample. */
+        CurrentSample = 0x187,
+
+        /** Read-only string (bytes). Textual description of last error when running model (if any). */
+        LastError = 0x188,
     }
 
     function packArray(arr: number[], fmt: NumberFormat) {
@@ -144,6 +160,7 @@ namespace jacdac {
         private samplingInterval: number
         private samplesInWindow: number
         private sampleSize: number
+        private streamSamples: number
         private samplesBuffer: Buffer
         private numSamples: number
         private lastRunNumSamples: number
@@ -178,6 +195,10 @@ namespace jacdac {
                 off += coll.lastSample.length
             }
             this.numSamples++
+            if (this.streamSamples > 0) {
+                this.streamSamples--
+                this.sendLastSample()
+            }
         }
 
         private runModel() {
@@ -185,7 +206,7 @@ namespace jacdac {
             const numSamples = this.numSamples
             const t0 = control.micros()
             try {
-                const res = tf.invokeModel([])//TODO
+                const res = tf.invokeModelF([this.samplesBuffer])
                 this.outputs = packArray(res[0], NumberFormat.Float32LE)
             } catch (e) {
                 if (typeof e == "string")
@@ -320,12 +341,19 @@ namespace jacdac {
             }
         }
 
+        private sendLastSample() {
+            this.sendReport(JDPacket.from(TFLiteReg.CurrentSample | CMD_GET_REG, this.samplesBuffer.slice(
+                this.samplesBuffer.length - this.sampleSize, this.sampleSize)))
+        }
+
         handlePacket(packet: JDPacket) {
             this.handleRegInt(packet, TFLiteReg.AllocatedArenaSize, tf.arenaBytes())
             this.handleRegInt(packet, TFLiteReg.LastRunTime, this.execTime)
             this.handleRegInt(packet, TFLiteReg.ModelSize, this.modelSize)
+            this.handleRegInt(packet, TFLiteReg.NumSamples, this.numSamples)
+            this.handleRegInt(packet, TFLiteReg.SampleSize, this.sampleSize)
             this.handleRegBuffer(packet, TFLiteReg.Outputs, this.outputs)
-
+            this.streamSamples = this.handleRegInt(packet, TFLiteReg.StreamSamples, this.sampleSize)
             this.autoInvokeSamples = this.handleRegInt(packet, TFLiteReg.AutoInvokeEvery, this.autoInvokeSamples)
 
             let arr: number[]
@@ -346,6 +374,12 @@ namespace jacdac {
                     arr = arr || tf.inputShape(0)
                     this.sendReport(JDPacket.from(packet.service_command, packArray(arr, NumberFormat.UInt16LE)))
                     break;
+                case TFLiteReg.CurrentSample | CMD_GET_REG:
+                    this.sendLastSample()
+                    break;
+                case TFLiteReg.LastError | CMD_GET_REG:
+                    this.sendReport(JDPacket.from(packet.service_command, Buffer.fromUTF8(this.lastError || "")))
+                    break
                 default:
                     break;
             }
