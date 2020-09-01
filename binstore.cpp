@@ -33,6 +33,7 @@ int erase() {
     uintptr_t p = beg;
     uintptr_t end = beg + sz;
     while (p < end) {
+        DMESG("erase at %p", p);
         if (flash->erasePage(p))
             return -2;
         p += flash->pageSize(p);
@@ -112,7 +113,7 @@ void write(Buffer dst, int dstOffset, Buffer src) {
     auto flash = settings::largeStoreFlash();
     uint32_t len = (src->length + 7) & ~7;
     for (unsigned i = 0; i < len; ++i)
-        if (dst->data[i] != 0xff)
+        if (dst->data[dstOffset + i] != 0xff)
             pxt::throwValue((TValue)sNotErased);
     if (flash->writeBytes((uintptr_t)dst->data + dstOffset, src->data, len))
         pxt::throwValue((TValue)sWriteError);

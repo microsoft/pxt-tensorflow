@@ -214,6 +214,7 @@ namespace jacdac {
             }
             this.execTime = control.micros() - t0
             this.lastRunNumSamples = numSamples
+            this.sendReport(JDPacket.from(CMD_GET_REG | TFLiteReg.Outputs, this.outputs))
         }
 
         _newData(timestamp: number, isPost: boolean) {
@@ -311,18 +312,20 @@ namespace jacdac {
 
         private readModel(packet: JDPacket) {
             const sz = packet.intData
+            console.log(`model ${sz} bytes (of ${binstore.totalSize()})`)
             if (sz > binstore.totalSize() - 8)
                 return
             this.eraseModel()
             const flash = binstore.addBuffer(sz)
             const pipe = new InPipe()
             this.sendReport(JDPacket.packed(packet.service_command, "H", [pipe.port]))
+            console.log(`pipe ${pipe.port}`)
             let off = 0
             const headBuffer = Buffer.create(8)
             while (true) {
                 const buf = pipe.read()
                 if (!buf)
-                    control.reset()
+                    return
                 if (off == 0) {
                     // don't write the header before we finish
                     headBuffer.write(0, buf)
@@ -335,11 +338,14 @@ namespace jacdac {
                     // now that we're done, write the header
                     binstore.write(flash, 0, headBuffer)
                     // and reset, so we're sure the GC heap is not fragmented when we allocate new arena
-                    control.reset()
+                    //control.reset()
+                    break
                 }
                 if (off & 7)
                     throw "invalid model stream size"
             }
+            pipe.close()
+            this.loadModel()
         }
 
         private sendLastSample() {
@@ -354,7 +360,7 @@ namespace jacdac {
             this.handleRegInt(packet, TFLiteReg.NumSamples, this.numSamples)
             this.handleRegInt(packet, TFLiteReg.SampleSize, this.sampleSize)
             this.handleRegBuffer(packet, TFLiteReg.Outputs, this.outputs)
-            this.streamSamples = this.handleRegInt(packet, TFLiteReg.StreamSamples, this.sampleSize)
+            this.streamSamples = this.handleRegInt(packet, TFLiteReg.StreamSamples, this.streamSamples)
             this.autoInvokeSamples = this.handleRegInt(packet, TFLiteReg.AutoInvokeEvery, this.autoInvokeSamples)
 
             let arr: number[]
