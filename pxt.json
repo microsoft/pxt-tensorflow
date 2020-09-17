@@ -23,6 +23,13 @@
     "fileDependencies": {
         "tfjacdac.ts": "jacdac-services"
     },
+    "testDependencies": {
+        "jacdac-services": "github:microsoft/pxt-jacdac-services#v0.0.6",
+        "settings": "*"
+    },
+    "testFiles": [
+        "test.ts"
+    ],
     "public": true,
     "supportedTargets": [
         "arcade",
