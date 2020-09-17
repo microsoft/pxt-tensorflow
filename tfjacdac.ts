@@ -66,7 +66,7 @@ namespace jacdac {
         private execTime = 0
         private outputs = Buffer.create(0)
         private lastError: string
-        private lastRunNumSamples: number
+        private lastRunNumSamples = 0
 
         constructor(private agg: SensorAggregatorHost) {
             super("tflite", jd_class.TFLITE);
