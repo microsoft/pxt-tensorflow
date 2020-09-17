@@ -1,0 +1,37 @@
+name: MakeCode
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [12.x]
+
+    steps:
+      - uses: actions/checkout@v1
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Cache npm and makecode
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.npm
+            ~/.pxt/mkc-cache
+          key: ${{ runner.os }}
+      - name: npm install
+        run: |
+          npm install -g makecode
+      - run: makecode -u
+      - run: cat built/*/*.uf2 > drop.uf2
+      - name: Upload results
+        uses: actions/upload-artifact@v1
+        with:
+          name: f411.uf2
+          path: drop.uf2
+
