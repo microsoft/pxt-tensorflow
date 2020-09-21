@@ -3,6 +3,7 @@
     "version": "0.0.1",
     "description": "Run Tensorflow Lite models in MakeCode - beta",
     "dependencies": {
+        "ml": "github:microsoft/pxt-ml#v0.0.1",
         "core": "*"
     },
     "files": [
@@ -11,8 +12,6 @@
         "tf.ts",
         "shims.d.ts",
         "tfjacdac.ts",
-        "binstore.cpp",
-        "binstore.ts",
         "ns.ts"
     ],
     "codal": {
