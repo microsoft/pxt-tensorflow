@@ -3,7 +3,7 @@
     "version": "0.0.1",
     "description": "Run Tensorflow Lite models in MakeCode - beta",
     "dependencies": {
-        "ml": "github:microsoft/pxt-ml#v0.0.1",
+        "ml": "github:microsoft/pxt-ml#v0.0.5",
         "core": "*"
     },
     "files": [
