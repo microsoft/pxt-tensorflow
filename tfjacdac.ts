@@ -1,15 +1,10 @@
-namespace jd_class {
-    export const TFLITE = 0x140f9a78
-}
-
 namespace jacdac {
     const arenaSizeSettingsKey = "#jd-tflite-arenaSize"
 
     export class TFLiteHost extends MLHost {
         constructor(agg: SensorAggregatorHost) {
-            super("tflite", jd_class.TFLITE, agg);
+            super("tflite", ModelRunnerModelFormat.TFLite, agg);
         }
-
 
         protected invokeModel() {
             try {
