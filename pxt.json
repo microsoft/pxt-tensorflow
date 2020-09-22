@@ -1,6 +1,6 @@
 {
     "name": "tensorflow",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "description": "Run Tensorflow Lite models in MakeCode - beta",
     "dependencies": {
         "ml": "github:microsoft/pxt-ml#v0.0.5",
@@ -34,5 +34,6 @@
         "arcade",
         "maker"
     ],
-    "preferredEditor": "tsprj"
+    "preferredEditor": "tsprj",
+    "binaryonly": true
 }
