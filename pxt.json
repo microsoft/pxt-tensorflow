@@ -3,7 +3,7 @@
     "version": "0.0.2",
     "description": "Run Tensorflow Lite models in MakeCode - beta",
     "dependencies": {
-        "ml": "github:microsoft/pxt-ml#v0.0.5",
+        "ml": "github:microsoft/pxt-ml#v0.0.7",
         "core": "*"
     },
     "files": [
@@ -23,7 +23,7 @@
         "tfjacdac.ts": "jacdac-services"
     },
     "testDependencies": {
-        "jacdac-services": "github:microsoft/pxt-jacdac-services#v0.0.6",
+        "jacdac-services": "github:microsoft/pxt-jacdac-services#v0.0.7",
         "settings": "*"
     },
     "testFiles": [

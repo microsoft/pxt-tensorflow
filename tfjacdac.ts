@@ -9,11 +9,9 @@ namespace jacdac {
         protected invokeModel() {
             try {
                 const res = tf.invokeModelF([this.agg.samplesBuffer])
-                this.outputs = packArray(res[0], NumberFormat.Float32LE)
+                this.outputs = ml.packArray(res[0], NumberFormat.Float32LE)
             } catch (e) {
-                if (typeof e == "string")
-                    this.lastError = e
-                control.dmesgValue(e)
+                this.catchHandler(e)
             }
         }
 
@@ -30,9 +28,7 @@ namespace jacdac {
                 if (sizeHint == undefined)
                     settings.writeNumber(arenaSizeSettingsKey, tf.arenaBytes() + 32)
             } catch (e) {
-                if (typeof e == "string")
-                    this.lastError = e
-                control.dmesgValue(e)
+                this.catchHandler(e)
             }
         }
 
