@@ -53,6 +53,9 @@ WTensorFlow::WTensorFlow() {
     op_resolver.AddRelu();          // seems implicit in networks
     op_resolver.AddRelu6();         // 864
 
+    op_resolver.AddQuantize();              // 2092
+    op_resolver.AddDequantize();            // 1976
+
     // TEST_OP
 
 #if 0
@@ -64,7 +67,6 @@ WTensorFlow::WTensorFlow() {
     op_resolver.AddCeil();                  // 1100
     op_resolver.AddConcatenation();         // 4088
     op_resolver.AddCos();                   // 792
-    op_resolver.AddDequantize();            // 1976
     op_resolver.AddEqual();                 // 9280
     op_resolver.AddFloor();                 // 500
     op_resolver.AddGreater();               // 8032
@@ -87,7 +89,6 @@ WTensorFlow::WTensorFlow() {
     op_resolver.AddPad();                   // 6604
     op_resolver.AddPadV2();                 // 6604
     op_resolver.AddPrelu();                 // 3896
-    op_resolver.AddQuantize();              // 2092
     op_resolver.AddRelu6();                 // 864
     op_resolver.AddResizeNearestNeighbor(); // 2516
     op_resolver.AddRound();                 // 1036
